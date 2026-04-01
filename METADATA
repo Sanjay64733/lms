@@ -1,155 +1,113 @@
-Metadata-Version: 2.4
-Name: cachetools
-Version: 6.2.6
-Summary: Extensible memoizing collections and decorators
-Author-email: Thomas Kemmer <tkemmer@computer.org>
-Maintainer-email: Thomas Kemmer <tkemmer@computer.org>
-License-Expression: MIT
-Project-URL: Homepage, https://github.com/tkem/cachetools/
+Metadata-Version: 2.1
+Name: smmap
+Version: 5.0.2
+Summary: A pure Python implementation of a sliding window memory map manager
+Home-page: https://github.com/gitpython-developers/smmap
+Author: Sebastian Thiel
+Author-email: byronimo@gmail.com
+License: BSD-3-Clause
+Platform: any
 Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
-Description-Content-Type: text/x-rst
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
 License-File: LICENSE
-Dynamic: license-file
 
-cachetools
-========================================================================
+## Motivation
 
-.. image:: https://img.shields.io/pypi/v/cachetools
-   :target: https://pypi.org/project/cachetools/
-   :alt: Latest PyPI version
+When reading from many possibly large files in a fashion similar to random access, it is usually the fastest and most efficient to use memory maps.
 
-.. image:: https://img.shields.io/github/actions/workflow/status/tkem/cachetools/ci.yml
-   :target: https://github.com/tkem/cachetools/actions/workflows/ci.yml
-   :alt: CI build status
-
-.. image:: https://img.shields.io/readthedocs/cachetools
-   :target: https://cachetools.readthedocs.io/
-   :alt: Documentation build status
-
-.. image:: https://img.shields.io/codecov/c/github/tkem/cachetools/master.svg
-   :target: https://codecov.io/gh/tkem/cachetools
-   :alt: Test coverage
-
-.. image:: https://img.shields.io/librariesio/sourcerank/pypi/cachetools
-   :target: https://libraries.io/pypi/cachetools
-   :alt: Libraries.io SourceRank
-
-.. image:: https://img.shields.io/github/license/tkem/cachetools
-   :target: https://raw.github.com/tkem/cachetools/master/LICENSE
-   :alt: License
-
-.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
-   :target: https://github.com/psf/black
-   :alt: Code style: black
+Although memory maps have many advantages, they represent a very limited system resource as every map uses one file descriptor, whose amount is limited per process. On 32 bit systems, the amount of memory you can have mapped at a time is naturally limited to theoretical 4GB of memory, which may not be enough for some applications.
 
 
-This module provides various memoizing collections and decorators,
-including variants of the Python Standard Library's `@lru_cache`_
-function decorator.
+## Limitations
 
-.. code-block:: python
-
-   from cachetools import cached, LRUCache, TTLCache
-
-   # speed up calculating Fibonacci numbers with dynamic programming
-   @cached(cache={})
-   def fib(n):
-       return n if n < 2 else fib(n - 1) + fib(n - 2)
-
-   # cache least recently used Python Enhancement Proposals
-   @cached(cache=LRUCache(maxsize=32))
-   def get_pep(num):
-       url = 'http://www.python.org/dev/peps/pep-%04d/' % num
-       with urllib.request.urlopen(url) as s:
-           return s.read()
-
-   # cache weather data for no longer than ten minutes
-   @cached(cache=TTLCache(maxsize=1024, ttl=600))
-   def get_weather(place):
-       return owm.weather_at_place(place).get_weather()
-
-For the purpose of this module, a *cache* is a mutable_ mapping_ of a
-fixed maximum size.  When the cache is full, i.e. by adding another
-item the cache would exceed its maximum size, the cache must choose
-which item(s) to discard based on a suitable `cache algorithm`_.
-
-This module provides multiple cache classes based on different cache
-algorithms, as well as decorators for easily memoizing function and
-method calls.
+* **System resources (file-handles) are likely to be leaked!** This is due to the library authors reliance on a deterministic `__del__()` destructor.
+* The memory access is read-only by design.
 
 
-Installation
-------------------------------------------------------------------------
+## Overview
 
-cachetools is available from PyPI_ and can be installed by running::
+![Python package](https://github.com/gitpython-developers/smmap/workflows/Python%20package/badge.svg)
 
-  pip install cachetools
+Smmap wraps an interface around mmap and tracks the mapped files as well as the amount of clients who use it. If the system runs out of resources, or if a memory limit is reached, it will automatically unload unused maps to allow continued operation.
 
-Typing stubs for this package are provided by typeshed_ and can be
-installed by running::
+To allow processing large files even on 32 bit systems, it allows only portions of the file to be mapped. Once the user reads beyond the mapped region, smmap will automatically map the next required region, unloading unused regions using a LRU algorithm.
 
-  pip install types-cachetools
+Although the library can be used most efficiently with its native interface, a Buffer implementation is provided to hide these details behind a simple string-like interface.
 
-
-Project Resources
-------------------------------------------------------------------------
-
-- `Documentation`_
-- `Issue tracker`_
-- `Source code`_
-- `Change log`_
+For performance critical 64 bit applications, a simplified version of memory mapping is provided which always maps the whole file, but still provides the benefit of unloading unused mappings on demand.
 
 
-Related Projects
-------------------------------------------------------------------------
 
-- asyncache_: Helpers to use cachetools_ with asyncio.
-- cachetools-async_: Helpers to use cachetools_ with asyncio.
-- cacheing_: Pure Python Cacheing Library.
-- CacheToolsUtils_: Stackable cache classes for sharing, encryption,
-  statistics *and more* on top of cachetools_, redis_ and memcached_.
-- shelved-cache_: Persistent cache implementation for Python
-  cachetools_.
+## Prerequisites
+
+* Python 3.7+
+* OSX, Windows or Linux
+
+The package was tested on all of the previously mentioned configurations.
+
+## Installing smmap
+
+[![Documentation Status](https://readthedocs.org/projects/smmap/badge/?version=latest)](https://readthedocs.org/projects/smmap/?badge=latest)
+
+Its easiest to install smmap using the [pip](http://www.pip-installer.org/en/latest) program:
+
+```bash
+$ pip install smmap
+```
+
+As the command will install smmap in your respective python distribution, you will most likely need root permissions to authorize the required changes.
+
+If you have downloaded the source archive, the package can be installed by running the `setup.py` script:
+
+```bash
+$ python setup.py install
+```
+
+It is advised to have a look at the **Usage Guide** for a brief introduction on the different database implementations.
 
 
-License
-------------------------------------------------------------------------
 
-Copyright (c) 2014-2026 Thomas Kemmer.
+## Homepage and Links
 
-Licensed under the `MIT License`_.
+The project is home on github at https://github.com/gitpython-developers/smmap .
+
+The latest source can be cloned from github as well:
+
+* git://github.com/gitpython-developers/smmap.git
 
 
-.. _@lru_cache: https://docs.python.org/3/library/functools.html#functools.lru_cache
-.. _mutable: https://docs.python.org/dev/glossary.html#term-mutable
-.. _mapping: https://docs.python.org/dev/glossary.html#term-mapping
-.. _cache algorithm: https://en.wikipedia.org/wiki/Cache_algorithms
+For support, please use the git-python mailing list:
 
-.. _PyPI: https://pypi.org/project/cachetools/
-.. _typeshed: https://github.com/python/typeshed/
-.. _Documentation: https://cachetools.readthedocs.io/
-.. _Issue tracker: https://github.com/tkem/cachetools/issues/
-.. _Source code: https://github.com/tkem/cachetools/
-.. _Change log: https://github.com/tkem/cachetools/blob/master/CHANGELOG.rst
-.. _MIT License: https://raw.github.com/tkem/cachetools/master/LICENSE
+* http://groups.google.com/group/git-python
 
-.. _asyncache: https://pypi.org/project/asyncache/
-.. _cachetools-async: https://pypi.org/project/cachetools-async/
-.. _cacheing: https://pypi.org/project/cacheing/
-.. _CacheToolsUtils: https://pypi.org/project/CacheToolsUtils/
-.. _shelved-cache: https://pypi.org/project/shelved-cache/
-.. _cachetools: https://pypi.org/project/cachetools/
-.. _redis: https://redis.io/
-.. _memcached: https://memcached.org/
+
+Issues can be filed on github:
+
+* https://github.com/gitpython-developers/smmap/issues
+
+A link to the pypi page related to this repository:
+
+* https://pypi.org/project/smmap/
+
+
+## License Information
+
+*smmap* is licensed under the New BSD License.
+
